@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: silver_crypto_prices
+    columns:
+      - name: coin_id
+        tests:
+          - not_null
+          - unique
+      - name: current_price
+        tests:
+          - not_null
+      - name: market_cap
+        tests:
+          - not_null
+
+  - name: gold_crypto_performance
+    columns:
+      - name: coin_id
+        tests:
+          - not_null
+          - unique
+      - name: performance_rank
+        tests:
+          - not_null
