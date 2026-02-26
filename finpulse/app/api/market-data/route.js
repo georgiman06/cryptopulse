@@ -1,21 +1,26 @@
-import { DBSQLClient } from "@databricks/sql";
-
-const client = new DBSQLClient();
+export const runtime = 'edge';
 
 async function queryDatabricks(sql) {
-  const connection = await client.connect({
-    host: process.env.DATABRICKS_HOST,
-    path: process.env.DATABRICKS_HTTP_PATH,
-    token: process.env.DATABRICKS_TOKEN,
-  });
-
-  const session = await connection.openSession();
-  const operation = await session.executeStatement(sql);
-  const result = await operation.fetchAll();
-  await operation.close();
-  await session.close();
-  await connection.close();
-  return result;
+  const response = await fetch(
+    `https://${process.env.DATABRICKS_HOST}/api/2.0/sql/statements`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.DATABRICKS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statement: sql,
+        warehouse_id: process.env.DATABRICKS_WAREHOUSE_ID,
+        wait_timeout: '30s',
+      }),
+    }
+  );
+  const data = await response.json();
+  if (data.status?.state === 'FAILED') throw new Error(data.status.error?.message);
+  const columns = data.manifest?.schema?.columns?.map(c => c.name) || [];
+  const rows = data.result?.data_array || [];
+  return rows.map(row => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
 }
 
 export async function GET() {
@@ -24,7 +29,6 @@ export async function GET() {
       queryDatabricks(`SELECT * FROM cryptopulse_catalog.dev.silver_crypto_prices`),
       queryDatabricks(`SELECT * FROM cryptopulse_catalog.dev.silver_stocks_prices`),
     ]);
-
     return Response.json({ crypto, stocks });
   } catch (error) {
     console.error(error);
