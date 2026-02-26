@@ -20,7 +20,18 @@ async function queryDatabricks(sql) {
   if (data.status?.state === 'FAILED') throw new Error(data.status.error?.message);
   const columns = data.manifest?.schema?.columns?.map(c => c.name) || [];
   const rows = data.result?.data_array || [];
-  return rows.map(row => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
+  return rows.map(row => {
+    const obj = Object.fromEntries(columns.map((col, i) => [col, row[i]]));
+    // Convert numeric strings to numbers
+    return {
+      ...obj,
+      current_price: parseFloat(obj.current_price) || 0,
+      price_change_percentage_24h: parseFloat(obj.price_change_percentage_24h) || 0,
+      price_change_24h: parseFloat(obj.price_change_24h) || 0,
+      market_cap: parseFloat(obj.market_cap) || 0,
+      total_volume: parseFloat(obj.total_volume) || 0,
+    };
+  });
 }
 
 export async function GET() {
